@@ -29,6 +29,11 @@ void Context::InitRenderer()
 	renderer.reset(new Renderer());
 }
 
+void Context::InitcommandManager()
+{
+	commandManager = std::make_unique<CommandManager>();
+}
+
 //void Context::CreateRenderProcess()
 //{
 //	renderProcess.reset(new RenderProcess());
@@ -151,6 +156,8 @@ void Context::getQueue()
 }
 
 Context::~Context() {
+	commandManager.reset();
+	renderProcess.reset();
 	swapchain.reset();				//潜在的问题：调用instance_.reset()时，会调用~Context()，此时会调用~Swapchain():使用到了instance_这个指针，但此时Context内容还是完整的？
 	instance.destroySurfaceKHR(surface);
 	device.destroy();		//先销毁逻辑设备（与instance有关

@@ -13,14 +13,13 @@ namespace toy2d {
 		Context::Getinstance().renderProcess->InitRenderPass();
 		Context::Getinstance().swapchain->createFramerbuffers(w, h);		//这里才真正使用了renderpass
 		Context::Getinstance().renderProcess->InitPipeline(w, h);
+		Context::Getinstance().InitcommandManager();
 		Context::Getinstance().InitRenderer();
 	}
 
 	void Quit() {
 		Context::Getinstance().device.waitIdle();			//cpu等待GPU所有操作完成之后再执行
 		Context::Getinstance().renderer.reset();
-		Context::Getinstance().renderProcess.reset();
-		//Context::Getinstance().DestorySwapchain();
 		Shader::Quit();
 		Context::Quit();
 	}

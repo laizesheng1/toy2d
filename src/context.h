@@ -6,6 +6,7 @@
 #include <swap_chain.h>
 #include <RenderProcess.h>
 #include <renderer.h>
+#include <command_manager.h>
 
 using CreateSurfaceFunc = std::function<vk::SurfaceKHR(vk::Instance)>;
 
@@ -28,6 +29,7 @@ public:
 	static Context& Getinstance();
 	void CreateSwapchain(int w, int h);
 	void InitRenderer();
+	void InitcommandManager();
 	//void DestorySwapchain();
 	~Context();
 
@@ -41,6 +43,7 @@ public:
 	std::unique_ptr<Swapchain> swapchain;
 	std::unique_ptr<RenderProcess> renderProcess;
 	std::unique_ptr<Renderer> renderer;
+	std::unique_ptr<CommandManager> commandManager;
 private:
 	Context(const std::vector<const char*>& extension, CreateSurfaceFunc func);
 	static std::unique_ptr<Context> _instance;
