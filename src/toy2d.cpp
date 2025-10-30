@@ -2,6 +2,7 @@
 #include <filesystem>
 
 namespace toy2d {
+	std::unique_ptr<Renderer> renderer;
 	void Init(const std::vector<const char*>& extensions, CreateSurfaceFunc func, int w, int h)
 	{
 		Context::Init(extensions, func);
@@ -14,14 +15,18 @@ namespace toy2d {
 		Context::Getinstance().swapchain->createFramerbuffers(w, h);		//这里才真正使用了renderpass
 		Context::Getinstance().renderProcess->InitPipeline(w, h);
 		Context::Getinstance().InitcommandManager();
-		Context::Getinstance().InitRenderer();
+		renderer=std::make_unique<Renderer>();
 	}
 
 	void Quit() {
 		Context::Getinstance().device.waitIdle();			//cpu等待GPU所有操作完成之后再执行
-		Context::Getinstance().renderer.reset();
+		renderer.reset();
 		Shader::Quit();
 		Context::Quit();
+	}
+	Renderer* Getrender()
+	{
+		return renderer.get();
 	}
 }
 

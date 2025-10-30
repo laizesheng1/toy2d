@@ -48,7 +48,7 @@ int main() {
     
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        renderer.render();
+        renderer->render();
     }
 
     toy2d::Quit();

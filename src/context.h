@@ -28,9 +28,7 @@ public:
 	static void Quit();
 	static Context& Getinstance();
 	void CreateSwapchain(int w, int h);
-	void InitRenderer();
 	void InitcommandManager();
-	//void DestorySwapchain();
 	~Context();
 
 	vk::Instance instance;

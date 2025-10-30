@@ -1,12 +1,24 @@
 #include <renderer.h>
 #include <iostream>
 #include <context.h>
+#include <buffer.h>
+#include <Vertex.h>
+
+namespace toy2d {
+	const std::array<Vertex, 3> vertexs = { {
+		{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+	} };
+}
 
 toy2d::Renderer::Renderer(int maxFrames):maxFlightCount_(maxFrames),curFrame_(0)
 {
 	createCommandBuffer();
 	createSems();
 	creteFence();
+	createVertexBuffer();
+	bufferVertexData();
 }
 
 toy2d::Renderer::~Renderer()
@@ -62,6 +74,8 @@ void toy2d::Renderer::render()
 		cmdBuffer_[curFrame_].beginRenderPass(renderPassbegin, {});
 		{
 			cmdBuffer_[curFrame_].bindPipeline(vk::PipelineBindPoint::eGraphics, renderProcess->pipline);			//先绑定图形管线
+			vk::DeviceSize offset = { 0 };
+			cmdBuffer_[curFrame_].bindVertexBuffers(0, deviceVertexBuffer->buffer, offset);
 			cmdBuffer_[curFrame_].draw(3, 1, 0, 0);			//再进行绘制，（顶点数量，图元（实例）数量，要绘制的第一个顶点索引，要绘制的第一个图元索引）
 		}
 		cmdBuffer_[curFrame_].endRenderPass();
@@ -123,4 +137,42 @@ void toy2d::Renderer::createCommandBuffer()
 	for (auto& cmd : cmdBuffer_) {
 		cmd = Context::Getinstance().commandManager->CreateOneCommandBuffer();
 	}
+}
+
+void toy2d::Renderer::createVertexBuffer()
+{
+	hostVertexBuffer.reset(new Buffer(sizeof(vertexs[0]) * vertexs.size(),
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent));			//eHostVisible用于从CPU写入数据
+																										//eHostCoherent保证映射的内存的内容和缓冲关联的内存的内容一致
+
+	deviceVertexBuffer.reset(new Buffer(sizeof(vertexs[0]) * vertexs.size(),
+		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+		vk::MemoryPropertyFlagBits::eDeviceLocal));
+}
+
+void toy2d::Renderer::bufferVertexData()
+{
+	void* ptr = Context::Getinstance().device.mapMemory(hostVertexBuffer->memory, 0, hostVertexBuffer->size);		//将缓冲关联的内存映射到CPU可以访问的内存
+	memcpy(ptr, vertexs.data(), (size_t)hostVertexBuffer->size);
+	Context::Getinstance().device.unmapMemory(hostVertexBuffer->memory);
+
+	auto cmdBuf = Context::Getinstance().commandManager->CreateOneCommandBuffer();
+	vk::CommandBufferBeginInfo beginInfo;
+	beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+	cmdBuf.begin(beginInfo);
+	{
+		vk::BufferCopy region;
+		region.setSize(hostVertexBuffer->size)
+			.setDstOffset(0)
+			.setSrcOffset(0);
+		cmdBuf.copyBuffer(hostVertexBuffer->buffer, deviceVertexBuffer->buffer, region);			//把cpu缓冲中的数据传输到GPU中
+	}
+	cmdBuf.end();
+
+	vk::SubmitInfo submit;
+	submit.setCommandBuffers(cmdBuf);
+	Context::Getinstance().graphcisQueue.submit(submit);
+	Context::Getinstance().device.waitIdle();			//等待传输完成
+	Context::Getinstance().commandManager->FreeCmd(cmdBuf);
 }

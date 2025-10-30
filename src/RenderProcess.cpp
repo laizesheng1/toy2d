@@ -1,5 +1,6 @@
 #include "RenderProcess.h"
 #include <context.h>
+#include <Vertex.h>
 
 toy2d::RenderProcess::~RenderProcess()
 {
@@ -13,8 +14,12 @@ void toy2d::RenderProcess::InitPipeline(int width, int height)
 {
 	vk::GraphicsPipelineCreateInfo createInfo;
 	//1. Vertex Input
-	vk::PipelineVertexInputStateCreateInfo inputState;			//在shder固定顶点输入，故没有传递具体参数
-	createInfo.setPVertexInputState(&inputState);
+	vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo;
+	auto attribute = Vertex::GetAttributeDescriptions();
+	auto binding = Vertex::GetBinding();
+	vertexInputCreateInfo.setVertexBindingDescriptions(binding)
+		.setVertexAttributeDescriptions(attribute);
+	createInfo.setPVertexInputState(&vertexInputCreateInfo);
 
 	//2. Vertex Assembly
 	vk::PipelineInputAssemblyStateCreateInfo inputAssembly;

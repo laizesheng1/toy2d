@@ -24,21 +24,10 @@ void Context::CreateSwapchain(int w, int h)
 	swapchain.reset(new Swapchain(w, h));		//在Context构造函数中，不存在其单例，在Swapchain构造函数不能使用其单例
 }
 
-void Context::InitRenderer()
-{
-	renderer.reset(new Renderer());
-}
-
 void Context::InitcommandManager()
 {
 	commandManager = std::make_unique<CommandManager>();
 }
-
-//void Context::CreateRenderProcess()
-//{
-//	renderProcess.reset(new RenderProcess());
-//}
-
 
 Context::Context(const std::vector<const char*>& extension, CreateSurfaceFunc func) {
 	
