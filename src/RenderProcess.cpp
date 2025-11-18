@@ -1,10 +1,13 @@
 #include "RenderProcess.h"
 #include <context.h>
 #include <Vertex.h>
+#include <Uniform.h>
+#include <iostream>
 
 toy2d::RenderProcess::~RenderProcess()
 {
 	auto& device = Context::Getinstance().device;
+	device.destroyDescriptorSetLayout(setLayout);
 	device.destroyRenderPass(renderPass);
 	device.destroyPipelineLayout(piplineLayout);
 	device.destroyPipeline(pipline);
@@ -43,8 +46,8 @@ void toy2d::RenderProcess::InitPipeline(int width, int height)
 	vk::PipelineRasterizationStateCreateInfo RasterInfo;
 	RasterInfo.setRasterizerDiscardEnable(false)		//几何图元都会通过光栅化阶段
 		.setCullMode(vk::CullModeFlagBits::eBack)			//背面剔除
-		//.setFrontFace(vk::FrontFace::eCounterClockwise)			//逆时针为正面
-		.setFrontFace(vk::FrontFace::eClockwise)
+		.setFrontFace(vk::FrontFace::eCounterClockwise)			//逆时针为正面，在投影矩阵中进行了 Y 翻转，顶点现在是以逆时针顺序而不是顺时针顺序绘制的
+		//.setFrontFace(vk::FrontFace::eClockwise)
 		.setPolygonMode(vk::PolygonMode::eFill)			//指定几何图元生成片段，eFill：整个多边形，包括多边形内部都产生片段
 		.setLineWidth(1);
 	createInfo.setPRasterizationState(&RasterInfo);
@@ -85,7 +88,9 @@ void toy2d::RenderProcess::InitPipeline(int width, int height)
 
 void toy2d::RenderProcess::InitPipelineLayout()
 {
-	vk::PipelineLayoutCreateInfo createInfo;
+	CreateSetLayout();
+	vk::PipelineLayoutCreateInfo createInfo;			//PipelineLayout:[setLayout1, setLayout2]-> DescriptorSetLayout:-[binding1 binding2 ]  -set ->DescriptorSetLayoutBinding: binding 
+	createInfo.setSetLayouts(setLayout);
 	piplineLayout = Context::Getinstance().device.createPipelineLayout(createInfo);
 }
 
@@ -123,6 +128,14 @@ void toy2d::RenderProcess::InitRenderPass()
 	createInfo.setDependencies(dependency);
 
 	renderPass = Context::Getinstance().device.createRenderPass(createInfo);
+}
+
+void toy2d::RenderProcess::CreateSetLayout()
+{
+	vk::DescriptorSetLayoutCreateInfo createInfo;
+	auto binding = Uniform::getBinding();
+	createInfo.setBindings(binding);
+	setLayout = Context::Getinstance().device.createDescriptorSetLayout(createInfo);
 }
 
 

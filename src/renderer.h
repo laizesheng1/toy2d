@@ -1,6 +1,6 @@
 #pragma once
 #include <vulkan/vulkan.hpp>
-
+#include <Uniform.h>
 
 namespace toy2d {
 	class Buffer;
@@ -20,15 +20,27 @@ namespace toy2d {
 
 		std::unique_ptr<Buffer> hostVertexBuffer;
 		std::unique_ptr<Buffer> deviceVertexBuffer;
+		std::vector<std::unique_ptr<Buffer>> hostUniformBuffer;
+		std::vector<std::unique_ptr<Buffer>> deviceUniformBuffer;
+
+		vk::DescriptorPool descriptorPool;
+		std::vector<vk::DescriptorSet> desSets;
 
 		int maxFlightCount_;
 		int curFrame_;
 
-		void initCmdPool();
 		void createCommandBuffer();
 		void createSems();
 		void creteFence();
 		void createVertexBuffer();
+		void createUniformBuffers();
 		void bufferVertexData();
+		//void bufferUniformData();
+		void createDescriptorPool();
+		void allocateSets();
+		void updateSets();
+		void updateUniformBuffer(int curImage);
+
+		void copyBuffer(vk::Buffer& src, vk::Buffer& dst, size_t size, size_t srcOffset, size_t dstOffset);
 	};
 }
