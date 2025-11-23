@@ -8,7 +8,7 @@ namespace toy2d {
 		vk::Pipeline pipline;
 		vk::PipelineLayout piplineLayout;
 		vk::RenderPass renderPass;
-		vk::DescriptorSetLayout setLayout;
+		std::vector<vk::DescriptorSetLayout> setLayouts;
 
 		~RenderProcess();
 

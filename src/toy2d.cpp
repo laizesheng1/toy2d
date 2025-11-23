@@ -16,6 +16,7 @@ namespace toy2d {
 		Context::Getinstance().renderProcess->InitPipeline(w, h);
 		Context::Getinstance().InitcommandManager();
 		renderer=std::make_unique<Renderer>();
+		renderer->SetVPMat(w, h);
 	}
 
 	void Quit() {

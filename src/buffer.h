@@ -9,6 +9,7 @@ namespace toy2d {
 		vk::Buffer buffer;
 		vk::DeviceMemory memory;
 		size_t size;
+		void* map;
 		//注意这里的第二个参数为BufferUsageFlags=Flags<BufferUsageFlagBits>，调用时才可以使用BufferUsageFlagBits的位运算
 		Buffer(size_t size_, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags property);
 		~Buffer();

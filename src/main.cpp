@@ -8,6 +8,37 @@
 #include <iostream>
 #include <toy2d.h>
 
+toy2d::Renderer* renderer = nullptr;
+float x = 100, y = 100;
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (action == GLFW_PRESS) {
+        switch (key) {
+        case GLFW_KEY_A:
+            x -= 10;
+            break;
+        case GLFW_KEY_D:
+            x += 10;
+            break;
+        case GLFW_KEY_W:
+            y -= 10;
+            break;
+        case GLFW_KEY_S:
+            y += 10;
+            break;
+        case GLFW_KEY_1:
+            renderer->SetDrawColor(toy2d::Color{ 1, 0, 0 });
+            break;
+        case GLFW_KEY_2:
+            renderer->SetDrawColor(toy2d::Color{ 0, 1, 0 });
+            break;
+        case GLFW_KEY_3:
+            renderer->SetDrawColor(toy2d::Color{ 0, 0, 1 });
+            break;
+        }
+    }
+}
+
 int main() {
     glfwInit();
 
@@ -21,10 +52,6 @@ int main() {
         &extensionCount, nullptr);
 
     std::cout << extensionCount << " extensions supported" << std::endl;
-
-    glm::mat4 matrix;
-    glm::vec4 vec;
-    auto test = matrix * vec;
 
     //获取创建"窗口"所必需的扩展列表
     unsigned int count;
@@ -44,11 +71,13 @@ int main() {
         }
         return surface;
         }, 800, 600);
-    auto renderer = toy2d::Getrender();
     
+    renderer = toy2d::Getrender();
+    glfwSetKeyCallback(window, key_callback);
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        renderer->render();
+
+        renderer->render(Rec2D({ x,y }, { 200,300 }));
     }
 
     toy2d::Quit();

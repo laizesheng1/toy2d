@@ -3,16 +3,26 @@
 
 toy2d::Buffer::Buffer(size_t size_, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags property) :size(size_)
 {
+	auto device = Context::Getinstance().device;
 	createBuffer(usage);
 	MemoryInfo info = queeryBufferInfo(property);
 	allocMemory(info);
 	bindingMem2Buf();
+	if (property & vk::MemoryPropertyFlagBits::eHostVisible) {
+		map = device.mapMemory(memory, 0, size);
+	}
+	else {
+		map = nullptr;
+	}
 }
 
 toy2d::Buffer::~Buffer()
 {
-	Context::Getinstance().device.freeMemory(memory);
-	Context::Getinstance().device.destroyBuffer(buffer);
+	auto device = Context::Getinstance().device;
+	if (map)
+		device.unmapMemory(memory);
+	device.freeMemory(memory);
+	device.destroyBuffer(buffer);
 }
 
 void toy2d::Buffer::createBuffer(vk::BufferUsageFlags usage)
