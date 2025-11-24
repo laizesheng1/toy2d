@@ -9,7 +9,7 @@
 #include <toy2d.h>
 
 toy2d::Renderer* renderer = nullptr;
-float x = 100, y = 100;
+float x = 100, y = 150;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
@@ -34,6 +34,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             break;
         case GLFW_KEY_3:
             renderer->SetDrawColor(toy2d::Color{ 0, 0, 1 });
+            break;
+        case GLFW_KEY_0:
+            renderer->SetDrawColor(toy2d::Color{ 1, 1, 1 });
             break;
         }
     }

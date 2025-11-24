@@ -9,12 +9,12 @@
 
 namespace toy2d {
 	const std::array<Vertex, 4> vertexs = { {
-		{{-0.5f, -0.5f}},
-		{{ 0.5f, -0.5f}},
-		{{0.5f, 0.5f}},
-		{{-0.5f, 0.5f}}
+		{{-0.5f, -0.5f}, {0.0f,0.0f}},
+		{{ 0.5f, -0.5f},{2.0f,0.0f}},
+		{{0.5f, 0.5f}, {2.0f,2.0f}},
+		{{-0.5f, 0.5f}, {0.0f,2.0f}}
 	} };
-	const std::vector<uint16_t> indices{ 0,1,2,2,3,0 };
+	const std::vector<uint16_t> indices{ 0,1,3,1,2,3 };				//纹理坐标、vertex坐标要对应
 }
 
 //namespace toy2d {
@@ -37,13 +37,14 @@ toy2d::Renderer::Renderer(int maxFrames):maxFlightCount_(maxFrames),curFrame_(0)
 	bufferData();
 	createUniformBuffers();
 	uniformBufferData();
+	createTextureImage();
 	createDescriptorPool();
 	allocateSets();
 	updateSets();
 
 	projectMat_ = glm::identity<glm::mat4>();
 	viewMat_ = glm::identity<glm::mat4>();
-	SetDrawColor(Color{ 1.0, 0, 0 });
+	SetDrawColor(Color{ 1.0, 1.0, 1.0 });
 }
 
 toy2d::Renderer::~Renderer()
@@ -219,6 +220,11 @@ void toy2d::Renderer::copyBuffer(vk::Buffer& src, vk::Buffer& dst, size_t size, 
 	Context::Getinstance().commandManager->FreeCmd(cmdBuf);
 }
 
+void toy2d::Renderer::createTextureImage()
+{
+	textureImage.reset(new Image("../texture/texture.jpg"));
+}
+
 void toy2d::Renderer::createUniformBuffers()
 {
 	hostUniformBuffer.resize(maxFlightCount_);
@@ -286,10 +292,12 @@ void toy2d::Renderer::SetVPMat(int w, int h)
 void toy2d::Renderer::createDescriptorPool()
 {
 	vk::DescriptorPoolCreateInfo creatInfo;
-	vk::DescriptorPoolSize poolsize;
-	poolsize.setType(vk::DescriptorType::eUniformBuffer)
-		.setDescriptorCount(maxFlightCount_);		//总的描述符数量
-	std::vector<vk::DescriptorPoolSize> sizes(2, poolsize);
+	std::vector<vk::DescriptorPoolSize> sizes(2);
+	sizes[0].setDescriptorCount(maxFlightCount_ * 2)		//对于MVP及Color
+		.setType(vk::DescriptorType::eUniformBuffer);
+	sizes[1].setDescriptorCount(maxFlightCount_)			//对于sample
+		.setType(vk::DescriptorType::eCombinedImageSampler);
+
 	creatInfo.setMaxSets(maxFlightCount_)			//几帧创建几个描述符集，一个描述符集对应一个uniform（shader中）即一个描述符
 		.setPoolSizes(sizes);
 	descriptorPool = Context::Getinstance().device.createDescriptorPool(creatInfo);
@@ -311,7 +319,7 @@ void toy2d::Renderer::updateSets()
 	for (int i = 0; i < desSets.size(); i++)
 	{
 		std::vector<vk::DescriptorBufferInfo> bufferInfo(2);
-		std::vector<vk::WriteDescriptorSet> writes(2);
+		std::vector<vk::WriteDescriptorSet> writes(3);
 		//View proj
 		bufferInfo[0].setBuffer(deviceUniformBuffer[i]->buffer)
 			.setOffset(0)
@@ -333,6 +341,18 @@ void toy2d::Renderer::updateSets()
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 			.setDstArrayElement(0)
 			.setDstBinding(1)
+			.setDstSet(desSets[i]);
+		//texture
+		vk::DescriptorImageInfo imageInfo;
+		imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+			.setImageView(textureImage->imageView)
+			.setSampler(textureImage->TextureSampler);
+
+		writes[2].setImageInfo(imageInfo)
+			.setDescriptorCount(1)
+			.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+			.setDstArrayElement(0)
+			.setDstBinding(2)
 			.setDstSet(desSets[i]);
 			
 		Context::Getinstance().device.updateDescriptorSets(writes, {});

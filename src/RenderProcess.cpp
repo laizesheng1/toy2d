@@ -19,7 +19,7 @@ void toy2d::RenderProcess::InitPipeline(int width, int height)
 	vk::GraphicsPipelineCreateInfo createInfo;
 	//1. Vertex Input
 	vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo;
-	auto attribute = Vertex::GetAttributeDescription();
+	auto attribute = Vertex::GetAttributeDescriptions();
 	auto binding = Vertex::GetBinding();
 	vertexInputCreateInfo.setVertexBindingDescriptions(binding)
 		.setVertexAttributeDescriptions(attribute);
@@ -64,11 +64,17 @@ void toy2d::RenderProcess::InitPipeline(int width, int height)
 	//8.blending
 	vk::PipelineColorBlendStateCreateInfo blendInfo;
 	vk::PipelineColorBlendAttachmentState attach;
-	attach.setBlendEnable(false)			//不进行混合，对单个颜色附件
+	attach.setBlendEnable(true)			//进行混合，对单个颜色附件
 		.setColorWriteMask(vk::ColorComponentFlagBits::eA |
 						   vk::ColorComponentFlagBits::eB |
-					       vk::ColorComponentFlagBits::eG |
-						   vk::ColorComponentFlagBits::eR);
+						   vk::ColorComponentFlagBits::eG |
+						   vk::ColorComponentFlagBits::eR)
+		.setSrcColorBlendFactor(vk::BlendFactor::eOne)
+		.setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+		.setColorBlendOp(vk::BlendOp::eAdd)
+		.setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+		.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+		.setAlphaBlendOp(vk::BlendOp::eAdd);
 
 	blendInfo.setLogicOpEnable(false)			//所有颜色附件（全局设置），实现特殊的位运算视觉效果
 		.setAttachments(attach);

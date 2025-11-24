@@ -2,6 +2,7 @@
 #include <vulkan/vulkan.hpp>
 #include <Uniform.h>
 #include <utils.h>
+#include "image.h"
 
 namespace toy2d {
 	class Buffer;
@@ -31,6 +32,7 @@ namespace toy2d {
 
 		vk::DescriptorPool descriptorPool;
 		std::vector<vk::DescriptorSet> desSets;
+		std::unique_ptr<Image> textureImage;
 
 		int maxFlightCount_;
 		int curFrame_;
@@ -50,7 +52,7 @@ namespace toy2d {
 		void uniformBufferData();
 
 		void copyBuffer(vk::Buffer& src, vk::Buffer& dst, size_t size, size_t srcOffset, size_t dstOffset);
-
+		void createTextureImage();
 		
 	};
 }

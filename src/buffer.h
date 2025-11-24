@@ -22,7 +22,7 @@ namespace toy2d {
 		void createBuffer(vk::BufferUsageFlags usage);
 		void allocMemory(MemoryInfo info);
 		void bindingMem2Buf();
-		MemoryInfo queeryBufferInfo(vk::MemoryPropertyFlags property);
 	};
+	uint32_t QueryBufferMemTypeIndex(uint32_t type, vk::MemoryPropertyFlags flag);
 }
 #endif

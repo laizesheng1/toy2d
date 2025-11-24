@@ -1,16 +1,21 @@
 #version 450
 
-layout(location = 0) in vec2 inPosition;
-
-layout(set = 0, binding = 0) uniform UniformBuffer {
-    mat4 project;
+layout(binding = 0) uniform UBO {
     mat4 view;
+    mat4 proj;
 } ubo;
 
-layout(push_constant) uniform PushConstant {
+layout(push_constant) uniform PushConstant
+{
     mat4 model;
 } pc;
 
+layout(location = 0) in vec2 inPosition;
+layout(location = 1) in vec2 inTexCoord;
+
+layout(location = 0) out vec2 outTexcoord;
+
 void main() {
-    gl_Position = ubo.project * ubo.view * pc.model * vec4(inPosition, 0.0, 1.0);
+    gl_Position = ubo.proj * ubo.view * pc.model * vec4(inPosition, 0.0, 1.0);
+    outTexcoord=inTexCoord;
 }

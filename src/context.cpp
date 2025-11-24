@@ -104,8 +104,10 @@ void Context::createDevice()
 			.setQueueFamilyIndex(queueFamilyIndices.presentFamily.value());
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
-	
+	vk::PhysicalDeviceFeatures features;
+	features.setSamplerAnisotropy(true);
 	createInfo.setQueueCreateInfos(queueCreateInfos)
+		.setPEnabledFeatures(&features)					//开启各项异性过滤
 		.setPEnabledExtensionNames(extensions);
 
 	device = physicaldevice.createDevice(createInfo);

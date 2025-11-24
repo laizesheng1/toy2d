@@ -13,7 +13,7 @@ namespace toy2d {
 
 		static std::vector<vk::DescriptorSetLayoutBinding> getBindings()
 		{
-			std::vector<vk::DescriptorSetLayoutBinding> bindings(2);
+			std::vector<vk::DescriptorSetLayoutBinding> bindings(3);
 			//mvp
 			bindings[0].setBinding(0)
 				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
@@ -22,6 +22,11 @@ namespace toy2d {
 			//Color
 			bindings[1].setBinding(1)
 				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+				.setStageFlags(vk::ShaderStageFlagBits::eFragment)				//描述符被使用的着色器阶段
+				.setDescriptorCount(1);
+			//sample
+			bindings[2].setBinding(2)
+				.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 				.setStageFlags(vk::ShaderStageFlagBits::eFragment)				//描述符被使用的着色器阶段
 				.setDescriptorCount(1);
 			return bindings;
