@@ -76,12 +76,19 @@ int main() {
         }, 800, 600);
     
     renderer = toy2d::Getrender();
+    toy2d::Image* image1 = toy2d::loadTextureImage("../texture/role.png");
+    toy2d::Image* image2 = toy2d::loadTextureImage("../texture/texture.jpg");
+
     glfwSetKeyCallback(window, key_callback);
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-
-        renderer->render(Rec2D({ x,y }, { 200,300 }));
+        renderer->StartRender();
+        renderer->DrawTexture(Rec2D({ 400,300 }, { 200,300 }), image1);
+        renderer->DrawTexture(Rec2D({ x,y }, { 200,300 }), image2);
+        renderer->EndRender();
     }
+    toy2d::DestroyTexture(image1);
+    toy2d::DestroyTexture(image1);
 
     toy2d::Quit();
 

@@ -4,16 +4,16 @@
 
 namespace toy2d {
 	using Color = glm::vec3;
-
+	
 	struct Uniform final {
 		//alignas(16) glm::mat4 model;				//使用push_constant
 		alignas(16) glm::mat4 view;
 		alignas(16) glm::mat4 proj;
 		Color color;
 
-		static std::vector<vk::DescriptorSetLayoutBinding> getBindings()
+		static std::vector<vk::DescriptorSetLayoutBinding> getUniformBindings()
 		{
-			std::vector<vk::DescriptorSetLayoutBinding> bindings(3);
+			std::vector<vk::DescriptorSetLayoutBinding> bindings(2);
 			//mvp
 			bindings[0].setBinding(0)
 				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
@@ -24,8 +24,13 @@ namespace toy2d {
 				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 				.setStageFlags(vk::ShaderStageFlagBits::eFragment)				//描述符被使用的着色器阶段
 				.setDescriptorCount(1);
+			return bindings;
+		}
+		static std::vector<vk::DescriptorSetLayoutBinding> getSamplerBindings()
+		{
+			std::vector<vk::DescriptorSetLayoutBinding> bindings(1);
 			//sample
-			bindings[2].setBinding(2)
+			bindings[0].setBinding(0)
 				.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 				.setStageFlags(vk::ShaderStageFlagBits::eFragment)				//描述符被使用的着色器阶段
 				.setDescriptorCount(1);

@@ -37,9 +37,7 @@ toy2d::Renderer::Renderer(int maxFrames):maxFlightCount_(maxFrames),curFrame_(0)
 	bufferData();
 	createUniformBuffers();
 	uniformBufferData();
-	createTextureImage();
-	createDescriptorPool();
-	allocateSets();
+	desSets = DescriptorSetManager::Instance().AllocBufferSets(maxFlightCount_);
 	updateSets();
 
 	projectMat_ = glm::identity<glm::mat4>();
@@ -50,8 +48,7 @@ toy2d::Renderer::Renderer(int maxFrames):maxFlightCount_(maxFrames),curFrame_(0)
 toy2d::Renderer::~Renderer()
 {
 	auto& device = Context::Getinstance().device;
-	device.destroyDescriptorPool(descriptorPool);
-	
+	desSets.clear();
 	for (auto& buffer : hostUniformBuffer)
 	{
 		buffer.reset();
@@ -70,7 +67,7 @@ toy2d::Renderer::~Renderer()
 		device.destroyFence(fence);
 }
 
-void toy2d::Renderer::render(Rec2D rec)
+void toy2d::Renderer::StartRender()
 {
 	auto& device = Context::Getinstance().device;
 	auto& renderProcess = Context::Getinstance().renderProcess;
@@ -85,61 +82,67 @@ void toy2d::Renderer::render(Rec2D rec)
 	//Context::Getinstance().presentQueue.waitIdle();		//在每一帧开头等待前一帧的呈现操作完全结束，gpu浪费
 
 	//从交换链获取一张图片
-	auto result = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<uint64_t>::max(), imageAvaliables[curFrame_],nullptr);
+	auto result = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<uint64_t>::max(), imageAvaliables[curFrame_], nullptr);
 	if (result.result != vk::Result::eSuccess)
 	{
 		std::cout << "acquire next image failed!" << std::endl;
 	}
 	//updateUniformBuffer(curFrame_);			//mvp作为一个uniform对象
-	auto imageIdx = result.value;
+	imageIdx = result.value;
 	cmdBuffer_[curFrame_].reset();
 
 	vk::CommandBufferBeginInfo begininfo;
 	begininfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);			//指令缓冲在执行一次后，就被用来记录新的指令（只使用一次
 	cmdBuffer_[curFrame_].begin(begininfo);			//记录指令到指令缓冲
-	{
-		vk::Rect2D area;
-		area.setOffset({ 0,0 })
-			.setExtent(swapchain->info.imageExtent);
-		vk::ClearValue value;
-		value.color = vk::ClearColorValue(std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f});
-		vk::RenderPassBeginInfo renderPassbegin;
-		renderPassbegin.setFramebuffer(swapchain->framebuffers[imageIdx])		//设置对应的 帧缓存
-			.setRenderArea(area)				//指定用于渲染的区域
-			.setRenderPass(renderProcess->renderPass)			//设置渲染流程
-			.setClearValues(value);
-		cmdBuffer_[curFrame_].beginRenderPass(renderPassbegin, vk::SubpassContents::eInline);
-		{
-			cmdBuffer_[curFrame_].bindPipeline(vk::PipelineBindPoint::eGraphics, renderProcess->pipline);			//先绑定图形管线
-			cmdBuffer_[curFrame_].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, renderProcess->piplineLayout, 0, desSets[curFrame_], {});
-			vk::DeviceSize offset = { 0 };
-			cmdBuffer_[curFrame_].bindVertexBuffers(0, VertexBuffer->buffer, offset);
-			cmdBuffer_[curFrame_].bindIndexBuffer(IndicesBuffer->buffer, 0, vk::IndexType::eUint16);
-			glm::mat4 model = rec.CreateMat<glm::mat4>();
-			cmdBuffer_[curFrame_].pushConstants(renderProcess->piplineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(model));
-			cmdBuffer_[curFrame_].drawIndexed((uint32_t)indices.size(), 1, 0, 0, 0);
-			//cmdBuffer_[curFrame_].draw(3, 1, 0, 0);			//再进行绘制，（顶点数量，图元（实例）数量，要绘制的第一个顶点索引，要绘制的第一个图元索引）
-		}
-		cmdBuffer_[curFrame_].endRenderPass();
-	}
-	cmdBuffer_[curFrame_].end();
+	
+	vk::Rect2D area;
+	area.setOffset({ 0,0 })
+		.setExtent(swapchain->info.imageExtent);
+	vk::ClearValue value;
+	value.color = vk::ClearColorValue(std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f});
+	vk::RenderPassBeginInfo renderPassbegin;
+	renderPassbegin.setFramebuffer(swapchain->framebuffers[imageIdx])		//设置对应的 帧缓存
+		.setRenderArea(area)				//指定用于渲染的区域
+		.setRenderPass(renderProcess->renderPass)			//设置渲染流程
+		.setClearValues(value);
+	cmdBuffer_[curFrame_].beginRenderPass(renderPassbegin, vk::SubpassContents::eInline);
+}
+
+void toy2d::Renderer::DrawTexture(Rec2D rec,Image* textureImage)
+{
+	auto& renderProcess = Context::Getinstance().renderProcess;
+	cmdBuffer_[curFrame_].bindPipeline(vk::PipelineBindPoint::eGraphics, renderProcess->pipline);			//先绑定图形管线
+	cmdBuffer_[curFrame_].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, renderProcess->piplineLayout, 0, { desSets[curFrame_].set, textureImage->setInfo.set }, {});
+	vk::DeviceSize offset = { 0 };
+	cmdBuffer_[curFrame_].bindVertexBuffers(0, VertexBuffer->buffer, offset);
+	cmdBuffer_[curFrame_].bindIndexBuffer(IndicesBuffer->buffer, 0, vk::IndexType::eUint16);
+	glm::mat4 model = rec.CreateMat<glm::mat4>();
+	cmdBuffer_[curFrame_].pushConstants(renderProcess->piplineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(model));
+	cmdBuffer_[curFrame_].drawIndexed((uint32_t)indices.size(), 1, 0, 0, 0);
+}
+
+void toy2d::Renderer::EndRender()
+{
+	auto& swapchain = Context::Getinstance().swapchain;
+	auto& cmdBuf = cmdBuffer_[curFrame_];
+	cmdBuf.endRenderPass();
+	cmdBuf.end();
 
 	vk::SubmitInfo submit;
 	vk::PipelineStageFlags waitStages = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-	submit.setCommandBuffers(cmdBuffer_[curFrame_])
-		.setWaitSemaphores(imageAvaliables[curFrame_])
-		.setWaitDstStageMask(waitStages)
-		.setSignalSemaphores(imageDrawFinishs[curFrame_]);				//发出渲染已经结果，可以开始呈现的信号
+	submit.setCommandBuffers(cmdBuf)
+		  .setWaitSemaphores(imageAvaliables[curFrame_])
+		  .setWaitDstStageMask(waitStages)
+		  .setSignalSemaphores(imageDrawFinishs[curFrame_]);				//发出渲染已经结果，可以开始呈现的信号
 	Context::Getinstance().graphcisQueue.submit(submit, cmdAvaliableFences[curFrame_]);			//提交指令缓冲给图形指令队列
 
 	vk::PresentInfoKHR present;
 	present.setImageIndices(imageIdx)
-		.setSwapchains(swapchain->swapchain)
-		.setWaitSemaphores(imageDrawFinishs[curFrame_]);
+		   .setSwapchains(swapchain->swapchain)
+		   .setWaitSemaphores(imageDrawFinishs[curFrame_]);
 	if (Context::Getinstance().presentQueue.presentKHR(present) != vk::Result::eSuccess) {		//请求交换链进行图像呈现操作
 		std::cout << "image present failed" << std::endl;
 	}
-
 	curFrame_ = (curFrame_ + 1) % maxFlightCount_;
 }
 
@@ -220,11 +223,6 @@ void toy2d::Renderer::copyBuffer(vk::Buffer& src, vk::Buffer& dst, size_t size, 
 	Context::Getinstance().commandManager->FreeCmd(cmdBuf);
 }
 
-void toy2d::Renderer::createTextureImage()
-{
-	textureImage.reset(new Image("../texture/texture.jpg"));
-}
-
 void toy2d::Renderer::createUniformBuffers()
 {
 	hostUniformBuffer.resize(maxFlightCount_);
@@ -289,37 +287,12 @@ void toy2d::Renderer::SetVPMat(int w, int h)
 	uniformBufferData();
 }
 
-void toy2d::Renderer::createDescriptorPool()
-{
-	vk::DescriptorPoolCreateInfo creatInfo;
-	std::vector<vk::DescriptorPoolSize> sizes(2);
-	sizes[0].setDescriptorCount(maxFlightCount_ * 2)		//对于MVP及Color
-		.setType(vk::DescriptorType::eUniformBuffer);
-	sizes[1].setDescriptorCount(maxFlightCount_)			//对于sample
-		.setType(vk::DescriptorType::eCombinedImageSampler);
-
-	creatInfo.setMaxSets(maxFlightCount_)			//几帧创建几个描述符集，一个描述符集对应一个uniform（shader中）即一个描述符
-		.setPoolSizes(sizes);
-	descriptorPool = Context::Getinstance().device.createDescriptorPool(creatInfo);
-}
-
-void toy2d::Renderer::allocateSets()
-{
-	std::vector<vk::DescriptorSetLayout> layouts(maxFlightCount_, Context::Getinstance().renderProcess->setLayouts[0]);
-	vk::DescriptorSetAllocateInfo allocInfo;
-	allocInfo.setDescriptorPool(descriptorPool)
-		.setDescriptorSetCount(maxFlightCount_)
-		.setSetLayouts(layouts);			//一个描述符集对象使用一个描述符布局，需要多个相同的描述符布局
-
-	desSets = Context::Getinstance().device.allocateDescriptorSets(allocInfo);
-}
-
 void toy2d::Renderer::updateSets()
 {
 	for (int i = 0; i < desSets.size(); i++)
 	{
 		std::vector<vk::DescriptorBufferInfo> bufferInfo(2);
-		std::vector<vk::WriteDescriptorSet> writes(3);
+		std::vector<vk::WriteDescriptorSet> writes(2);
 		//View proj
 		bufferInfo[0].setBuffer(deviceUniformBuffer[i]->buffer)
 			.setOffset(0)
@@ -330,7 +303,7 @@ void toy2d::Renderer::updateSets()
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 			.setDstArrayElement(0)				//描述符可以是数组，需要指定数组的第一个元素的索引
 			.setDstBinding(0)
-			.setDstSet(desSets[i]);				//每一帧有一个描述符集，需要更新
+			.setDstSet(desSets[i].set);				//每一帧有一个描述符集，需要更新
 		//Color
 		bufferInfo[1].setBuffer(deviceColorBuffer[i]->buffer)
 			.setOffset(0)
@@ -341,19 +314,7 @@ void toy2d::Renderer::updateSets()
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 			.setDstArrayElement(0)
 			.setDstBinding(1)
-			.setDstSet(desSets[i]);
-		//texture
-		vk::DescriptorImageInfo imageInfo;
-		imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-			.setImageView(textureImage->imageView)
-			.setSampler(textureImage->TextureSampler);
-
-		writes[2].setImageInfo(imageInfo)
-			.setDescriptorCount(1)
-			.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-			.setDstArrayElement(0)
-			.setDstBinding(2)
-			.setDstSet(desSets[i]);
+			.setDstSet(desSets[i].set);
 			
 		Context::Getinstance().device.updateDescriptorSets(writes, {});
 	}

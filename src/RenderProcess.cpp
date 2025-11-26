@@ -142,8 +142,11 @@ void toy2d::RenderProcess::InitRenderPass()
 void toy2d::RenderProcess::CreateSetLayout()
 {
 	vk::DescriptorSetLayoutCreateInfo createInfo;
-	auto binding = Uniform::getBindings();
-	createInfo.setBindings(binding);
+	auto UniformBindings = Uniform::getUniformBindings();
+	createInfo.setBindings(UniformBindings);
+	setLayouts.push_back(Context::Getinstance().device.createDescriptorSetLayout(createInfo));
+	auto SamplerBindings = Uniform::getSamplerBindings();
+	createInfo.setBindings(SamplerBindings);
 	setLayouts.push_back(Context::Getinstance().device.createDescriptorSetLayout(createInfo));
 }
 

@@ -15,6 +15,7 @@ namespace toy2d {
 		Context::Getinstance().swapchain->createFramerbuffers(w, h);		//这里才真正使用了renderpass
 		Context::Getinstance().renderProcess->InitPipeline(w, h);
 		Context::Getinstance().InitcommandManager();
+		DescriptorSetManager::Init(2);
 		renderer=std::make_unique<Renderer>();
 		renderer->SetVPMat(w, h);
 	}
@@ -22,12 +23,21 @@ namespace toy2d {
 	void Quit() {
 		Context::Getinstance().device.waitIdle();			//cpu等待GPU所有操作完成之后再执行
 		renderer.reset();
+		ImageManager::GetInstance().Clear();
+		DescriptorSetManager::Quit();
 		Shader::Quit();
 		Context::Quit();
 	}
 	Renderer* Getrender()
 	{
 		return renderer.get();
+	}
+	Image* loadTextureImage(std::string filename)
+	{
+		return ImageManager::GetInstance().load(filename);
+	}
+	void DestroyTexture(Image* texture) {
+		ImageManager::GetInstance().Destroy(texture);
 	}
 }
 

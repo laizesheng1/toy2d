@@ -26,12 +26,14 @@ toy2d::Image::Image(std::string filename)
 
 	createImageView();
 	createTextureSampler();
-	
+	setInfo = DescriptorSetManager::Instance().AllocImageSet();
+	updateDescriptorSet();
 }
 
 toy2d::Image::~Image()
 {
 	auto device = Context::Getinstance().device;
+	DescriptorSetManager::Instance().FreeImageSet(setInfo);
 	device.destroySampler(TextureSampler);
 	device.destroyImageView(imageView);
 	device.destroyImage(image);
@@ -188,18 +190,44 @@ void toy2d::Image::createTextureSampler()
 	TextureSampler = Context::Getinstance().device.createSampler(samplerInfo);
 }
 
-//void toy2d::Image::updateDescriptorSet()
-//{
-//	vk::WriteDescriptorSet writer;
-//	vk::DescriptorImageInfo imageInfo;
-//	imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-//		.setImageView(imageView)
-//		.setSampler(TextureSampler);
-//	writer.setImageInfo(imageInfo)
-//		.setDstBinding(0)
-//		.setDstArrayElement(0)
-//		.setDstSet(set)
-//		.setDescriptorCount(1)
-//		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-//	Context::Getinstance().device.updateDescriptorSets(writer, {});
-//}
+void toy2d::Image::updateDescriptorSet()
+{
+	vk::WriteDescriptorSet writer;
+	vk::DescriptorImageInfo imageInfo;
+	imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+		.setImageView(imageView)
+		.setSampler(TextureSampler);
+	writer.setImageInfo(imageInfo)
+		.setDstBinding(0)
+		.setDstArrayElement(0)
+		.setDstSet(setInfo.set)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
+	Context::Getinstance().device.updateDescriptorSets(writer, {});
+}
+
+namespace toy2d {
+	std::unique_ptr<ImageManager> ImageManager::instance = nullptr;
+	Image* ImageManager::load(std::string filename)
+	{
+		data.push_back(std::unique_ptr<Image>(new Image(filename)));
+		return data.back().get();
+	}
+	void ImageManager::Destroy(Image* textureImgae)
+	{
+		auto it = std::find_if(data.begin(), data.end(),
+			[&](const std::unique_ptr<Image>& t)
+			{
+				return t.get() == textureImgae;
+			});
+		if (it != data.end())
+		{
+			Context::Getinstance().device.waitIdle();
+			data.erase(it);
+			return;
+		}
+	}
+	void ImageManager::Clear() {
+		data.clear();
+	}
+}

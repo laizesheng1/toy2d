@@ -12,7 +12,9 @@ namespace toy2d {
 		~Renderer();
 		void SetDrawColor(const Color& color);
 		void SetVPMat(int w, int h);
-		void render(Rec2D rec);
+		void StartRender();
+		void DrawTexture(Rec2D rec, Image* textureImage);
+		void EndRender();
 
 	private:
 		vk::CommandPool cmdPool_;
@@ -29,13 +31,11 @@ namespace toy2d {
 		std::vector<std::unique_ptr<Buffer>> deviceColorBuffer;
 		std::unique_ptr<Buffer> hostImageBuffer;
 		std::unique_ptr<Buffer> deviceImageBuffer;
-
-		vk::DescriptorPool descriptorPool;
-		std::vector<vk::DescriptorSet> desSets;
-		std::unique_ptr<Image> textureImage;
+		std::vector<DescriptorSetManager::SetInfo> desSets;
 
 		int maxFlightCount_;
 		int curFrame_;
+		uint32_t imageIdx;
 		glm::mat4 projectMat_;
 		glm::mat4 viewMat_;
 
@@ -45,14 +45,11 @@ namespace toy2d {
 		void createBuffers();
 		void bufferData();
 		void createUniformBuffers();
-		void createDescriptorPool();
-		void allocateSets();
 		void updateSets();
 		void updateUniformBuffer(int curImage);
 		void uniformBufferData();
 
 		void copyBuffer(vk::Buffer& src, vk::Buffer& dst, size_t size, size_t srcOffset, size_t dstOffset);
-		void createTextureImage();
 		
 	};
 }
