@@ -8,8 +8,6 @@
 #include <renderer.h>
 #include <command_manager.h>
 
-using CreateSurfaceFunc = std::function<vk::SurfaceKHR(vk::Instance)>;
-
 struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
 	std::optional<uint32_t> presentFamily;
@@ -21,14 +19,16 @@ struct QueueFamilyIndices {
 };
 
 namespace toy2d {
-
+	using GetSurfaceCallback = std::function<vk::SurfaceKHR(vk::Instance)>;
 class Context final {
 public:
-	static void Init(const std::vector<const char*>& extensions, CreateSurfaceFunc func);
+	static void Init(const std::vector<const char*>& extensions, GetSurfaceCallback func);
 	static void Quit();
 	static Context& Getinstance();
 	void CreateSwapchain(int w, int h);
 	void InitcommandManager();
+	void InitDepthImageInfo();
+	void getSurface();
 	~Context();
 
 	vk::Instance instance;
@@ -42,9 +42,13 @@ public:
 	std::unique_ptr<RenderProcess> renderProcess;
 	std::unique_ptr<Renderer> renderer;
 	std::unique_ptr<CommandManager> commandManager;
+	std::unique_ptr<DepthImageInfo> depthImage;
 private:
-	Context(const std::vector<const char*>& extension, CreateSurfaceFunc func);
-	static std::unique_ptr<Context> _instance;
+	Context(const std::vector<const char*>& extension, GetSurfaceCallback func);
+	static Context* _instance;
+
+	GetSurfaceCallback getSurfaceCb_ = nullptr;
+
 	void createInstanceInfo(const std::vector<const char*>& extensions);
 	void pickupPhysicalDevice();
 	void createDevice();		//创建逻辑设备

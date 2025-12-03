@@ -8,13 +8,19 @@
 #include <chrono>
 
 namespace toy2d {
-	const std::array<Vertex, 4> vertexs = { {
-		{{-0.5f, -0.5f}, {0.0f,0.0f}},
-		{{ 0.5f, -0.5f},{2.0f,0.0f}},
-		{{0.5f, 0.5f}, {2.0f,2.0f}},
-		{{-0.5f, 0.5f}, {0.0f,2.0f}}
+	const std::array<Vertex, 8> vertexs = { {
+		{{-0.5f, -0.5f,0.f}, {0.0f,0.0f}},
+		{{ 0.5f, -0.5f,0.f},{1.0f,0.0f}},
+		{{0.5f, 0.5f,0.f}, {1.0f,1.0f}},
+		{{-0.5f, 0.5f,0.f}, {0.0f,1.0f}},
+
+		{ { -0.5f, -0.5f, -0.5f },  {0.0f, 0.0f} },
+		{{0.5f, -0.5f, -0.5f},  {1.0f, 0.0f}},
+		{{0.5f, 0.5f, -0.5f},  {1.0f, 1.0f}},
+		{{-0.5f, 0.5f, -0.5f},  {0.0f, 1.0f}}
 	} };
-	const std::vector<uint16_t> indices{ 0,1,3,1,2,3 };				//纹理坐标、vertex坐标要对应
+	const std::vector<uint16_t> indices{ 0, 1, 3, 1, 2, 3 ,
+										4, 5, 7, 5, 6, 7 };				//纹理坐标、vertex坐标要对应
 }
 
 //namespace toy2d {
@@ -67,7 +73,32 @@ toy2d::Renderer::~Renderer()
 		device.destroyFence(fence);
 }
 
-void toy2d::Renderer::StartRender()
+void toy2d::Renderer::endRender()
+{
+	auto& swapchain = Context::Getinstance().swapchain;
+	auto& cmdBuf = cmdBuffer_[curFrame_];
+	cmdBuf.endRenderPass();
+	cmdBuf.end();
+
+	vk::SubmitInfo submit;
+	vk::PipelineStageFlags waitStages = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	submit.setCommandBuffers(cmdBuf)
+		.setWaitSemaphores(imageAvaliables[curFrame_])
+		.setWaitDstStageMask(waitStages)
+		.setSignalSemaphores(imageDrawFinishs[curFrame_]);				//发出渲染已经结果，可以开始呈现的信号
+	Context::Getinstance().graphcisQueue.submit(submit, cmdAvaliableFences[curFrame_]);			//提交指令缓冲给图形指令队列
+
+	vk::PresentInfoKHR present;
+	present.setImageIndices(imageIdx)
+		.setSwapchains(swapchain->swapchain)
+		.setWaitSemaphores(imageDrawFinishs[curFrame_]);
+	if (Context::Getinstance().presentQueue.presentKHR(present) != vk::Result::eSuccess) {		//请求交换链进行图像呈现操作
+		std::cout << "image present failed" << std::endl;
+	}
+	curFrame_ = (curFrame_ + 1) % maxFlightCount_;
+}
+
+void toy2d::Renderer::startRender()
 {
 	auto& device = Context::Getinstance().device;
 	auto& renderProcess = Context::Getinstance().renderProcess;
@@ -89,26 +120,30 @@ void toy2d::Renderer::StartRender()
 	}
 	//updateUniformBuffer(curFrame_);			//mvp作为一个uniform对象
 	imageIdx = result.value;
-	cmdBuffer_[curFrame_].reset();
+	auto& cmdBuf = cmdBuffer_[curFrame_];
+	cmdBuf.reset();
 
 	vk::CommandBufferBeginInfo begininfo;
 	begininfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);			//指令缓冲在执行一次后，就被用来记录新的指令（只使用一次
-	cmdBuffer_[curFrame_].begin(begininfo);			//记录指令到指令缓冲
-	
+	cmdBuf.begin(begininfo);			//记录指令到指令缓冲
+
 	vk::Rect2D area;
 	area.setOffset({ 0,0 })
 		.setExtent(swapchain->info.imageExtent);
-	vk::ClearValue value;
-	value.color = vk::ClearColorValue(std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f});
+	std::array<vk::ClearValue, 2> clearValues{};
+	vk::ClearColorValue color = vk::ClearColorValue(std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f});
+	vk::ClearDepthStencilValue depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+	clearValues[0].setColor(color);
+	clearValues[1].setDepthStencil(depthStencil);
 	vk::RenderPassBeginInfo renderPassbegin;
 	renderPassbegin.setFramebuffer(swapchain->framebuffers[imageIdx])		//设置对应的 帧缓存
 		.setRenderArea(area)				//指定用于渲染的区域
 		.setRenderPass(renderProcess->renderPass)			//设置渲染流程
-		.setClearValues(value);
-	cmdBuffer_[curFrame_].beginRenderPass(renderPassbegin, vk::SubpassContents::eInline);
+		.setClearValues(clearValues);
+	cmdBuf.beginRenderPass(renderPassbegin, vk::SubpassContents::eInline);
 }
 
-void toy2d::Renderer::DrawTexture(Rec2D rec,Image* textureImage)
+void toy2d::Renderer::DrawTexture(RecX rec,Image* textureImage)
 {
 	auto& renderProcess = Context::Getinstance().renderProcess;
 	cmdBuffer_[curFrame_].bindPipeline(vk::PipelineBindPoint::eGraphics, renderProcess->pipline);			//先绑定图形管线
@@ -117,33 +152,9 @@ void toy2d::Renderer::DrawTexture(Rec2D rec,Image* textureImage)
 	cmdBuffer_[curFrame_].bindVertexBuffers(0, VertexBuffer->buffer, offset);
 	cmdBuffer_[curFrame_].bindIndexBuffer(IndicesBuffer->buffer, 0, vk::IndexType::eUint16);
 	glm::mat4 model = rec.CreateMat<glm::mat4>();
+	//glm::mat4 model= glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	cmdBuffer_[curFrame_].pushConstants(renderProcess->piplineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), glm::value_ptr(model));
 	cmdBuffer_[curFrame_].drawIndexed((uint32_t)indices.size(), 1, 0, 0, 0);
-}
-
-void toy2d::Renderer::EndRender()
-{
-	auto& swapchain = Context::Getinstance().swapchain;
-	auto& cmdBuf = cmdBuffer_[curFrame_];
-	cmdBuf.endRenderPass();
-	cmdBuf.end();
-
-	vk::SubmitInfo submit;
-	vk::PipelineStageFlags waitStages = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-	submit.setCommandBuffers(cmdBuf)
-		  .setWaitSemaphores(imageAvaliables[curFrame_])
-		  .setWaitDstStageMask(waitStages)
-		  .setSignalSemaphores(imageDrawFinishs[curFrame_]);				//发出渲染已经结果，可以开始呈现的信号
-	Context::Getinstance().graphcisQueue.submit(submit, cmdAvaliableFences[curFrame_]);			//提交指令缓冲给图形指令队列
-
-	vk::PresentInfoKHR present;
-	present.setImageIndices(imageIdx)
-		   .setSwapchains(swapchain->swapchain)
-		   .setWaitSemaphores(imageDrawFinishs[curFrame_]);
-	if (Context::Getinstance().presentQueue.presentKHR(present) != vk::Result::eSuccess) {		//请求交换链进行图像呈现操作
-		std::cout << "image present failed" << std::endl;
-	}
-	curFrame_ = (curFrame_ + 1) % maxFlightCount_;
 }
 
 void toy2d::Renderer::createSems()
@@ -283,7 +294,9 @@ void toy2d::Renderer::SetDrawColor(const Color& color) {
 
 void toy2d::Renderer::SetVPMat(int w, int h)
 {
-	projectMat_ = glm::ortho(0.0f, static_cast<float>(w), 0.0f, static_cast<float>(h));
+	//projectMat_ = glm::ortho(0.0f, static_cast<float>(w), 0.0f, static_cast<float>(h));
+	viewMat_ = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	projectMat_ = glm::perspective(glm::radians(45.0f), (float)w / (float)h, 0.1f, 10.0f);
 	uniformBufferData();
 }
 
@@ -341,3 +354,16 @@ void toy2d::Renderer::updateSets()
 //	copyBuffer(buffer->buffer, deviceUniformBuffer[curImage]->buffer, buffer->size, 0, 0);
 //}
 
+void toy2d::recreateSwapChain(int width,int height)
+{
+	auto& device = Context::Getinstance().device;
+	auto& old_swapchain = Context::Getinstance().swapchain;
+	device.waitIdle();
+
+	old_swapchain.reset();
+	Context::Getinstance().getSurface();
+	Context::Getinstance().CreateSwapchain(width, height);
+	auto& swapchain = Context::Getinstance().swapchain;
+	Context::Getinstance().InitDepthImageInfo();
+	swapchain->createFramerbuffers(width, height);
+}

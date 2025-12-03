@@ -3,7 +3,7 @@
 
 toy2d::Buffer::Buffer(size_t size_, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags property) :size(size_)
 {
-	auto device = Context::Getinstance().device;
+	auto& device = Context::Getinstance().device;
 	createBuffer(usage);
 	MemoryInfo info;
 	auto requirements = Context::Getinstance().device.getBufferMemoryRequirements(buffer);
@@ -21,7 +21,7 @@ toy2d::Buffer::Buffer(size_t size_, vk::BufferUsageFlags usage, vk::MemoryProper
 
 toy2d::Buffer::~Buffer()
 {
-	auto device = Context::Getinstance().device;
+	auto& device = Context::Getinstance().device;
 	if (map)
 		device.unmapMemory(memory);
 	device.freeMemory(memory);

@@ -19,12 +19,14 @@ toy2d::Image::Image(std::string filename)
 	memcpy(ImageBuffer->map, pixels, ImageBuffer->size);				//把图像数据存到 暂存缓冲区
 
 	stbi_image_free(pixels);
-	createImage(vk::MemoryPropertyFlagBits::eDeviceLocal);
+	createImage(w, h, vk::Format::eR8G8B8A8Srgb,
+		vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+		vk::MemoryPropertyFlagBits::eDeviceLocal, TextureImage, TextureMemory);
 	transitionImageLayoutFromUndefine2Dst();
 	transformData2Image(*ImageBuffer);
 	transitionImageLayoutFromDst2Optimal();
 
-	createImageView();
+	TextureImageView = createImageView(TextureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
 	createTextureSampler();
 	setInfo = DescriptorSetManager::Instance().AllocImageSet();
 	updateDescriptorSet();
@@ -32,30 +34,31 @@ toy2d::Image::Image(std::string filename)
 
 toy2d::Image::~Image()
 {
-	auto device = Context::Getinstance().device;
+	auto& device = Context::Getinstance().device;
 	DescriptorSetManager::Instance().FreeImageSet(setInfo);
 	device.destroySampler(TextureSampler);
-	device.destroyImageView(imageView);
-	device.destroyImage(image);
+	device.destroyImageView(TextureImageView);
+	device.destroyImage(TextureImage);
+	device.freeMemory(TextureMemory);
 	ImageBuffer.reset();
 }
 
-void toy2d::Image::createImage(vk::MemoryPropertyFlagBits property)
+void toy2d::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits property, vk::Image& image, vk::DeviceMemory& imageMemory)
 {
-	auto device = Context::Getinstance().device;
+	auto& device = Context::Getinstance().device;
 	vk::ImageCreateInfo createInfo;
 	vk::Extent3D extent;
-	extent.setWidth(w)
-		.setHeight(h)
+	extent.setWidth(width)
+		.setHeight(height)
 		.setDepth(1);
 
 	createInfo.setArrayLayers(1)
 		.setExtent(extent)
-		.setFormat(vk::Format::eR8G8B8A8Srgb)
+		.setFormat(format)
 		.setInitialLayout(vk::ImageLayout::eUndefined)
 		.setMipLevels(1)
-		.setTiling(vk::ImageTiling::eOptimal)
-		.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+		.setTiling(tiling)
+		.setUsage(usage)
 		.setSharingMode(vk::SharingMode::eExclusive)
 		.setSamples(vk::SampleCountFlagBits::e1)
 		.setImageType(vk::ImageType::e2D);
@@ -64,12 +67,12 @@ void toy2d::Image::createImage(vk::MemoryPropertyFlagBits property)
 		throw std::runtime_error("failed to create image!");
 	}
 
-	auto info = queryImageInfo(property);
-	memory = device.allocateMemory(info);
-	device.bindImageMemory(image, memory, 0);
+	auto info = queryImageInfo(image, property);
+	imageMemory= device.allocateMemory(info);
+	device.bindImageMemory(image, imageMemory, 0);
 }
 
-vk::MemoryAllocateInfo toy2d::Image::queryImageInfo(vk::MemoryPropertyFlagBits property)
+vk::MemoryAllocateInfo toy2d::queryImageInfo(vk::Image image, vk::MemoryPropertyFlagBits property)
 {
 	vk::MemoryRequirements requirements;
 	Context::Getinstance().device.getImageMemoryRequirements(image, &requirements);
@@ -90,7 +93,7 @@ void toy2d::Image::transitionImageLayoutFromUndefine2Dst()
 				.setBaseArrayLayer(0)
 				.setBaseMipLevel(0)
 				.setLevelCount(1);
-			barrier.setImage(image)
+			barrier.setImage(TextureImage)
 				.setOldLayout(vk::ImageLayout::eUndefined)
 				.setNewLayout(vk::ImageLayout::eTransferDstOptimal)
 				.setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
@@ -115,7 +118,7 @@ void toy2d::Image::transitionImageLayoutFromDst2Optimal()
 				.setBaseArrayLayer(0)
 				.setBaseMipLevel(0)
 				.setLevelCount(1);
-			barrier.setImage(image)
+			barrier.setImage(TextureImage)
 				.setOldLayout(vk::ImageLayout::eTransferDstOptimal)			//传输目标 → 着色器读取
 				.setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
 				.setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
@@ -148,17 +151,18 @@ void toy2d::Image::transformData2Image(Buffer& buffer)
 				.setImageOffset(0)
 				.setImageSubresource(range);
 			//把 缓冲区的数据填充 image对象
-			cmdBuf.copyBufferToImage(buffer.buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
+			cmdBuf.copyBufferToImage(buffer.buffer, TextureImage, vk::ImageLayout::eTransferDstOptimal, region);
 		});
 	
 }
 
-void toy2d::Image::createImageView()
+vk::ImageView toy2d::createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags)
 {
 	vk::ImageViewCreateInfo createInfo;
 	vk::ComponentMapping mapping;
 	vk::ImageSubresourceRange range;
-	range.setAspectMask(vk::ImageAspectFlagBits::eColor)
+	vk::ImageView res;
+	range.setAspectMask(aspectFlags)
 		.setBaseArrayLayer(0)
 		.setBaseMipLevel(0)
 		.setLayerCount(1)
@@ -166,9 +170,10 @@ void toy2d::Image::createImageView()
 	createInfo.setImage(image)
 		.setViewType(vk::ImageViewType::e2D)
 		.setComponents(mapping)
-		.setFormat(vk::Format::eR8G8B8A8Srgb)
+		.setFormat(format)
 		.setSubresourceRange(range);
-	imageView = Context::Getinstance().device.createImageView(createInfo);
+	res = Context::Getinstance().device.createImageView(createInfo);
+	return res;
 }
 
 void toy2d::Image::createTextureSampler()
@@ -195,7 +200,7 @@ void toy2d::Image::updateDescriptorSet()
 	vk::WriteDescriptorSet writer;
 	vk::DescriptorImageInfo imageInfo;
 	imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-		.setImageView(imageView)
+		.setImageView(TextureImageView)
 		.setSampler(TextureSampler);
 	writer.setImageInfo(imageInfo)
 		.setDstBinding(0)
@@ -206,12 +211,50 @@ void toy2d::Image::updateDescriptorSet()
 	Context::Getinstance().device.updateDescriptorSets(writer, {});
 }
 
+toy2d::DepthImageInfo::DepthImageInfo()
+{
+	createDepthResources();
+}
+
+void toy2d::DepthImageInfo::destroyDepthImage()
+{
+	auto& device = Context::Getinstance().device;
+	device.destroyImageView(DepthImageView);
+	device.destroyImage(DepthImage);
+	device.freeMemory(DepthMemory);
+}
+
+void toy2d::DepthImageInfo::createDepthResources()
+{
+	std::vector<vk::Format> candidates = { vk::Format::eD32Sfloat,vk::Format::eD32SfloatS8Uint,vk::Format::eD24UnormS8Uint };
+	Depthformat = findSupportFormat(candidates, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+	auto extent = Context::Getinstance().swapchain->info.imageExtent;
+	createImage(extent.width, extent.height, Depthformat, vk::ImageTiling::eOptimal,
+		vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal , DepthImage, DepthMemory);
+	DepthImageView = createImageView(DepthImage, Depthformat, vk::ImageAspectFlagBits::eDepth);
+}
+
+vk::Format toy2d::findSupportFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
+{
+	for (vk::Format format : candidates) {
+		vk::FormatProperties props = Context::Getinstance().physicaldevice.getFormatProperties(format);
+		if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features) {
+			return format;
+		}
+		else if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features) {
+			return format;
+		}
+	}
+
+	throw std::runtime_error("failed to find supported format!");
+}
+
 namespace toy2d {
 	std::unique_ptr<ImageManager> ImageManager::instance = nullptr;
-	Image* ImageManager::load(std::string filename)
+	void ImageManager::load(std::string filename)
 	{
 		data.push_back(std::unique_ptr<Image>(new Image(filename)));
-		return data.back().get();
+		return;
 	}
 	void ImageManager::Destroy(Image* textureImgae)
 	{
@@ -229,5 +272,9 @@ namespace toy2d {
 	}
 	void ImageManager::Clear() {
 		data.clear();
+	}
+	Image* ImageManager::Get(size_t i)
+	{
+		return data.at(i).get();
 	}
 }

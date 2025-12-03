@@ -3,15 +3,15 @@
 
 namespace toy2d {
 
-	std::unique_ptr<Context> Context::_instance = nullptr;
-void Context::Init(const std::vector<const char*>& extensions, CreateSurfaceFunc func)
+	Context* Context::_instance = nullptr;
+void Context::Init(const std::vector<const char*>& extensions, GetSurfaceCallback func)
 {
-	_instance.reset(new Context(extensions, func));
+	_instance=new Context(extensions, func);
 }
 
 void Context::Quit()
 {
-	_instance.reset();
+	delete _instance;
 }
 
 Context& Context::Getinstance()
@@ -21,7 +21,7 @@ Context& Context::Getinstance()
 
 void Context::CreateSwapchain(int w, int h)
 {
-	swapchain.reset(new Swapchain(w, h));		//在Context构造函数中，不存在其单例，在Swapchain构造函数不能使用其单例
+	swapchain.reset(new Swapchain(&surface, w, h));		//在Context构造函数中，不存在其单例，在Swapchain构造函数不能使用其单例
 }
 
 void Context::InitcommandManager()
@@ -29,8 +29,14 @@ void Context::InitcommandManager()
 	commandManager = std::make_unique<CommandManager>();
 }
 
-Context::Context(const std::vector<const char*>& extension, CreateSurfaceFunc func) {
+void Context::InitDepthImageInfo()
+{
+	depthImage.reset(new DepthImageInfo());
+}
+
+Context::Context(const std::vector<const char*>& extension, GetSurfaceCallback func) {
 	
+	getSurfaceCb_ = func;
 	createInstanceInfo(extension);
 	pickupPhysicalDevice();
 	surface = func(instance);		
@@ -146,13 +152,23 @@ void Context::getQueue()
 	presentQueue = device.getQueue(queueFamilyIndices.presentFamily.value(), 0);
 }
 
+void Context::getSurface()
+{
+	surface = getSurfaceCb_(instance);			//获得新的surface
+	if (!surface) {
+		std::cout << "create surface failed" << std::endl;
+		exit(1);
+	}
+}
+
 Context::~Context() {
 	commandManager.reset();
 	renderProcess.reset();
 	swapchain.reset();				//潜在的问题：调用instance_.reset()时，会调用~Context()，此时会调用~Swapchain():使用到了instance_这个指针，但此时Context内容还是完整的？
-	instance.destroySurfaceKHR(surface);
+	if(surface!= VK_NULL_HANDLE)
+		instance.destroySurfaceKHR(surface);				//在swainchain中已经销毁
 	device.destroy();		//先销毁逻辑设备（与instance有关
-	instance.destroy();
+	instance.destroy();				//为什么这里销毁 会报错
 }
 		
 }

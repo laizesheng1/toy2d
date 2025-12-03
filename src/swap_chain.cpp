@@ -2,7 +2,7 @@
 #include <context.h>
 #include <algorithm>
 
-toy2d::Swapchain::Swapchain(int w, int h)
+toy2d::Swapchain::Swapchain(vk::SurfaceKHR* surface, int w, int h):surface_(surface)
 {
 	queryInfo(w, h);
 
@@ -11,7 +11,7 @@ toy2d::Swapchain::Swapchain(int w, int h)
 		.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)			//窗口内容被视为完全不透明,用于指定alpha通道是否被用来和窗口系统中的其它窗口进行混合操作
 		.setImageArrayLayers(1)				//用于指定每个图像所包含的层次
 		.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)			//在图像上进行绘制操作，也就是将图像作为一个颜色附着来使用
-		.setSurface(Context::Getinstance().surface)
+		.setSurface(*surface_)
 		.setImageColorSpace(info.format.colorSpace)
 		.setImageExtent(info.imageExtent)
 		.setImageFormat(info.format.format)
@@ -39,6 +39,8 @@ toy2d::Swapchain::Swapchain(int w, int h)
 toy2d::Swapchain::~Swapchain()
 {
 	auto& device = Context::Getinstance().device;
+	auto& imageInfo = Context::Getinstance().depthImage;			//清除深度信息
+	imageInfo->destroyDepthImage();
 	for (auto& framebuffer : framebuffers)
 	{
 		device.destroyFramebuffer(framebuffer);
@@ -48,13 +50,14 @@ toy2d::Swapchain::~Swapchain()
 		device.destroyImageView(view);
 	}
 	device.destroySwapchainKHR(swapchain);
+	Context::Getinstance().instance.destroySurfaceKHR(*surface_);			//***清除surface
+	*surface_ = VK_NULL_HANDLE;
 }
 
 void toy2d::Swapchain::queryInfo(int w, int h)
 {
 	auto& phyDevice = Context::Getinstance().physicaldevice;
-	auto& surface = Context::Getinstance().surface;
-	auto& formats = phyDevice.getSurfaceFormatsKHR(surface);
+	auto& formats = phyDevice.getSurfaceFormatsKHR(*surface_);
 	for (const auto& format : formats)
 	{
 		if (format.format == vk::Format::eR8G8B8A8Srgb &&
@@ -64,14 +67,14 @@ void toy2d::Swapchain::queryInfo(int w, int h)
 			break;
 		}
 	}
-	auto capabilities = phyDevice.getSurfaceCapabilitiesKHR(surface);			//查询表面特性
+	auto capabilities = phyDevice.getSurfaceCapabilitiesKHR(*surface_);			//查询表面特性
 	//info.imageExtent.width = std::max(std::min(capabilities.currentExtent.width,capabilities.maxImageExtent.width), capabilities.minImageExtent.width);
 	info.imageCount = std::clamp<uint32_t>(2, capabilities.minImageCount, capabilities.maxImageCount);			//maxImageCount的值为0表明，只要内存可以满足，我们可以使用任意数量的图像
 	info.imageExtent.width = std::clamp<uint32_t>(w, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
 	info.imageExtent.height = std::clamp<uint32_t>(h, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 	info.transform = capabilities.currentTransform;
 	
-	auto presents = phyDevice.getSurfacePresentModesKHR(surface);
+	auto presents = phyDevice.getSurfacePresentModesKHR(*surface_);
 	info.present = vk::PresentModeKHR::eFifo;			//先进先出模式
 	for (auto& p : presents)
 	{
@@ -116,10 +119,12 @@ void toy2d::Swapchain::createImageViews()
 void toy2d::Swapchain::createFramerbuffers(int w, int h)
 {
 	framebuffers.resize(images.size());
+	vk::ImageView depthImageView = Context::Getinstance().depthImage->DepthImageView;
 	for (int i = 0; i < framebuffers.size(); i++)
 	{
 		vk::FramebufferCreateInfo createinfo;
-		createinfo.setAttachments(swapChainImageViews[i])
+		std::array<vk::ImageView, 2> attachments = { swapChainImageViews[i], depthImageView };
+		createinfo.setAttachments(attachments)
 			.setWidth(w)
 			.setHeight(h)
 			.setLayers(1)

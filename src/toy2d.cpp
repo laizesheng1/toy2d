@@ -3,19 +3,22 @@
 
 namespace toy2d {
 	std::unique_ptr<Renderer> renderer;
-	void Init(const std::vector<const char*>& extensions, CreateSurfaceFunc func, int w, int h)
+	void Init(const std::vector<const char*>& extensions, GetSurfaceCallback func, int w, int h)
 	{
 		Context::Init(extensions, func);
 		Context::Getinstance().CreateSwapchain(w, h);		
 		Shader::Init(ReadShaderFile("./shader.vert.spv"), ReadShaderFile("./shader.frag.spv"));
 
+		Context::Getinstance().InitDepthImageInfo();
 		//Context::Getinstance().CreateRenderProcess();
 		Context::Getinstance().renderProcess->InitPipelineLayout();
 		Context::Getinstance().renderProcess->InitRenderPass();
 		Context::Getinstance().swapchain->createFramerbuffers(w, h);		//这里才真正使用了renderpass
-		Context::Getinstance().renderProcess->InitPipeline(w, h);
+		Context::Getinstance().renderProcess->InitPipeline();
 		Context::Getinstance().InitcommandManager();
 		DescriptorSetManager::Init(2);
+		loadTextureImage("../texture/role.png");
+		loadTextureImage("../texture/texture.jpg");
 		renderer=std::make_unique<Renderer>();
 		renderer->SetVPMat(w, h);
 	}
@@ -32,9 +35,10 @@ namespace toy2d {
 	{
 		return renderer.get();
 	}
-	Image* loadTextureImage(std::string filename)
+	void loadTextureImage(std::string filename)
 	{
-		return ImageManager::GetInstance().load(filename);
+		ImageManager::GetInstance().load(filename);
+		return;
 	}
 	void DestroyTexture(Image* texture) {
 		ImageManager::GetInstance().Destroy(texture);

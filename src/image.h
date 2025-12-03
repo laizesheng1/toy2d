@@ -5,29 +5,43 @@
 
 namespace toy2d {
 	class ImageManager;
+	void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits property, vk::Image& image, vk::DeviceMemory& imageMemory);			//创建由设备内存支持的图像对象
+	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
+	vk::Format findSupportFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+	vk::MemoryAllocateInfo queryImageInfo(vk::Image image, vk::MemoryPropertyFlagBits property);
 	class Image final {
 	public:
 		friend class ImageManager;
-
 		~Image();
-		vk::Image image;
-		vk::ImageView imageView;
+		vk::Image TextureImage;
+		vk::ImageView TextureImageView;
 		vk::Sampler TextureSampler;
 		DescriptorSetManager::SetInfo setInfo;
 	private:
 		int w, h;
 		std::unique_ptr<Buffer> ImageBuffer;
-		vk::DeviceMemory memory;
+		vk::DeviceMemory TextureMemory;
 
 		Image(std::string filename);
-		void createImage(vk::MemoryPropertyFlagBits property);			//创建由设备内存支持的图像对象
-		vk::MemoryAllocateInfo queryImageInfo(vk::MemoryPropertyFlagBits property);
+		
 		void transitionImageLayoutFromUndefine2Dst();
 		void transitionImageLayoutFromDst2Optimal();
 		void transformData2Image(Buffer& buffer);
-		void createImageView();
 		void createTextureSampler();
 		void updateDescriptorSet();
+	};
+
+	class DepthImageInfo final{
+	public:
+		DepthImageInfo();
+		void destroyDepthImage();
+
+		vk::ImageView DepthImageView;				//befor createFramerbuffers
+		vk::Format Depthformat;				//before InitRenderPass
+	private:
+		vk::Image DepthImage;
+		vk::DeviceMemory DepthMemory;
+		void createDepthResources();
 	};
 
 	class ImageManager final {
@@ -40,9 +54,10 @@ namespace toy2d {
 			}
 			return *instance;
 		}
-		Image* load(std::string filename);
+		void load(std::string filename);
 		void Destroy(Image* textureImgae);
 		void Clear();
+		Image* Get(size_t i);
 
 	private:
 		static std::unique_ptr<ImageManager> instance;

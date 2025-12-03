@@ -4,12 +4,15 @@
 namespace toy2d {
 	class Swapchain final{
 	public:
-		Swapchain(int w, int h);
+		Swapchain(vk::SurfaceKHR* surface, int w, int h);
 		~Swapchain();
 		void queryInfo(int w, int h);
 		void getImages();
 		void createImageViews();
 		void createFramerbuffers(int w, int h);
+
+		const auto& GetExtent() const { return info.imageExtent; }
+		vk::SurfaceKHR* surface_ = nullptr;
 
 		vk::SwapchainKHR swapchain;
 		struct SwapchainInfo {

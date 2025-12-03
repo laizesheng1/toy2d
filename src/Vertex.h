@@ -5,7 +5,7 @@
 
 namespace toy2d {
     struct Vertex final {
-        glm::vec2 pos;
+        glm::vec3 pos;
         glm::vec2 texCoord;
         //glm::vec3 color;
 
@@ -16,7 +16,7 @@ namespace toy2d {
             //属性 0: 位置 (pos)
             attributes[0].setBinding(0);           // 绑定到顶点缓冲区绑定点 0
             attributes[0].setLocation(0);           // 在顶点着色器中的 location = 0
-            attributes[0].setFormat(vk::Format::eR32G32Sfloat);     // 两个 32 位浮点数
+            attributes[0].setFormat(vk::Format::eR32G32B32Sfloat);     // 3个 32 位浮点数
             attributes[0].setOffset(offsetof(Vertex, pos));         // 在结构体中的偏移量
 
             //属性 1:

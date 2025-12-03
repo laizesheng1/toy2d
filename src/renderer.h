@@ -1,8 +1,12 @@
 #pragma once
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 #include <vulkan/vulkan.hpp>
 #include <Uniform.h>
 #include <utils.h>
 #include "image.h"
+#include <swap_chain.h>
 
 namespace toy2d {
 	class Buffer;
@@ -12,10 +16,11 @@ namespace toy2d {
 		~Renderer();
 		void SetDrawColor(const Color& color);
 		void SetVPMat(int w, int h);
-		void StartRender();
-		void DrawTexture(Rec2D rec, Image* textureImage);
-		void EndRender();
-
+		void startRender();
+		void DrawTexture(RecX rec, Image* textureImage);
+		void endRender();
+		glm::mat4 projectMat_;
+		glm::mat4 viewMat_;
 	private:
 		vk::CommandPool cmdPool_;
 		std::vector<vk::CommandBuffer> cmdBuffer_;
@@ -36,8 +41,6 @@ namespace toy2d {
 		int maxFlightCount_;
 		int curFrame_;
 		uint32_t imageIdx;
-		glm::mat4 projectMat_;
-		glm::mat4 viewMat_;
 
 		void createCommandBuffer();
 		void createSems();
@@ -50,6 +53,7 @@ namespace toy2d {
 		void uniformBufferData();
 
 		void copyBuffer(vk::Buffer& src, vk::Buffer& dst, size_t size, size_t srcOffset, size_t dstOffset);
-		
+
 	};
+	void recreateSwapChain(int width, int height);
 }

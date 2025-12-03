@@ -3,6 +3,7 @@
 #include <Vertex.h>
 #include <Uniform.h>
 #include <iostream>
+#include <swap_chain.h>
 
 toy2d::RenderProcess::~RenderProcess()
 {
@@ -14,8 +15,9 @@ toy2d::RenderProcess::~RenderProcess()
 	device.destroyPipeline(pipline);
 }
 
-void toy2d::RenderProcess::InitPipeline(int width, int height)
+void toy2d::RenderProcess::InitPipeline()
 {
+	auto& swapchain = Context::Getinstance().swapchain;
 	vk::GraphicsPipelineCreateInfo createInfo;
 	//1. Vertex Input
 	vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo;
@@ -37,8 +39,8 @@ void toy2d::RenderProcess::InitPipeline(int width, int height)
 
 	//4. viewport
 	vk::PipelineViewportStateCreateInfo StateCreateInfo;
-	vk::Viewport viewport(0.0, 0.0, width, height, 0.0, 1.0);
-	vk::Rect2D rect({ 0,0 }, { static_cast<uint32_t>(width), static_cast<uint32_t>(height) });
+	vk::Viewport viewport(0.0, 0.0, swapchain->GetExtent().width, swapchain->GetExtent().height, 0.0, 1.0);
+	vk::Rect2D rect({ 0,0 }, swapchain->GetExtent());
 	StateCreateInfo.setViewports(viewport)
 		.setScissors(rect);				//裁剪大小
 	createInfo.setPViewportState(&StateCreateInfo);
@@ -60,6 +62,13 @@ void toy2d::RenderProcess::InitPipeline(int width, int height)
 	createInfo.setPMultisampleState(&multisampleInfo);
 
 	//7.test -> tenil test , depth test
+	vk::PipelineDepthStencilStateCreateInfo depthStencilInfo;
+	depthStencilInfo.setDepthTestEnable(true)
+		.setDepthWriteEnable(true)
+		.setDepthCompareOp(vk::CompareOp::eLess)			//较低深度 = 更近
+		.setDepthBoundsTestEnable(false)			//通过深度测试的片段的新深度实际写入深度缓冲区
+		.setStencilTestEnable(false);
+	createInfo.setPDepthStencilState(&depthStencilInfo);
 
 	//8.blending
 	vk::PipelineColorBlendStateCreateInfo blendInfo;
@@ -106,8 +115,8 @@ void toy2d::RenderProcess::InitPipelineLayout()
 void toy2d::RenderProcess::InitRenderPass()
 {
 	vk::RenderPassCreateInfo createInfo;
-	vk::AttachmentDescription attachDes;
-	attachDes.setFormat(Context::Getinstance().swapchain->info.format.format)			//颜色缓冲附着的格式
+	vk::AttachmentDescription ColorattachDes;
+	ColorattachDes.setFormat(Context::Getinstance().swapchain->info.format.format)			//颜色缓冲附着的格式
 		.setInitialLayout(vk::ImageLayout::eUndefined)					//指定渲染流程开始前的图像布局方式
 		//.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)			//图像被用作颜色附着
 		.setFinalLayout(vk::ImageLayout::ePresentSrcKHR)		// 图像被用在交换链中进行呈现操作
@@ -116,25 +125,43 @@ void toy2d::RenderProcess::InitRenderPass()
 		.setSamples(vk::SampleCountFlagBits::e1)
 		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)			//未使用模板缓冲
 		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
-	createInfo.setAttachments(attachDes);
 
-	vk::AttachmentReference reference;
-	reference.setAttachment(0)			//引用的附着在附着描述结构体数组(AttachmentDescription数组）中的索引
+	vk::AttachmentDescription depthAttachment;
+	vk::Format format = Context::Getinstance().depthImage->Depthformat;
+	depthAttachment.setFormat(format)
+		.setSamples(vk::SampleCountFlagBits::e1)
+		.setLoadOp(vk::AttachmentLoadOp::eClear)
+		.setStoreOp(vk::AttachmentStoreOp::eDontCare)
+		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+		.setInitialLayout(vk::ImageLayout::eUndefined)				//不关心之前的深度内容
+		.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+	vk::AttachmentReference colorReference;
+	colorReference.setAttachment(0)			//引用的附着在附着描述结构体数组(AttachmentDescription数组）中的索引
 		.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+	vk::AttachmentReference depthReference;
+	depthReference.setAttachment(1)
+		.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
 	vk::SubpassDescription subpassDes;
-	subpassDes.setColorAttachments(reference)			//设置的颜色附着在数组中的索引会被片段着色器使用
+	subpassDes.setColorAttachments(colorReference)			//设置的颜色附着在数组中的索引会被片段着色器使用
 		.setColorAttachmentCount(1)
+		.setPDepthStencilAttachment(&depthReference)
 		.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	createInfo.setSubpasses(subpassDes);
 
 	//设置渲染流程依赖
 	vk::SubpassDependency dependency;
 	dependency.setSrcSubpass(VK_SUBPASS_EXTERNAL)			//默认的隐含的init renderPass
 		.setDstSubpass(0)
-		.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eColorAttachmentRead)	
-		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-	createInfo.setDependencies(dependency);
+		.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eLateFragmentTests)
+		.setSrcAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests);
+	std::vector<vk::AttachmentDescription> attachs = { ColorattachDes,depthAttachment };
+	createInfo.setSubpasses(subpassDes)
+		.setAttachments(attachs)
+		.setDependencies(dependency);
 
 	renderPass = Context::Getinstance().device.createRenderPass(createInfo);
 }

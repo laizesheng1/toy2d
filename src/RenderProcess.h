@@ -12,7 +12,7 @@ namespace toy2d {
 
 		~RenderProcess();
 
-		void InitPipeline(int width, int height);
+		void InitPipeline();
 		void InitPipelineLayout();
 		void InitRenderPass();
 		void CreateSetLayout();
