@@ -9,7 +9,7 @@ namespace toy2d {
 		Context::Getinstance().CreateSwapchain(w, h);		
 		Shader::Init(ReadShaderFile("./shader.vert.spv"), ReadShaderFile("./shader.frag.spv"));
 
-		Context::Getinstance().InitDepthImageInfo();
+		Context::Getinstance().InitImageInfo();
 		//Context::Getinstance().CreateRenderProcess();
 		Context::Getinstance().renderProcess->InitPipelineLayout();
 		Context::Getinstance().renderProcess->InitRenderPass();
@@ -17,10 +17,9 @@ namespace toy2d {
 		Context::Getinstance().renderProcess->InitPipeline();
 		Context::Getinstance().InitcommandManager();
 		DescriptorSetManager::Init(2);
-		loadTextureImage("../texture/role.png");
-		loadTextureImage("../texture/texture.jpg");
-		renderer=std::make_unique<Renderer>();
-		renderer->SetVPMat(w, h);
+		loadTextureImage("../asserts/textures/viking_room.png");
+		std::string filename = "../asserts/models/viking_room.obj";
+		renderer = std::make_unique<Renderer>(filename);
 	}
 
 	void Quit() {

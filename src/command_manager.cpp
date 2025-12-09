@@ -62,7 +62,7 @@ namespace toy2d {
         submit.setCommandBuffers(cmdBuf);
         queue.submit(submit);
         queue.waitIdle();
-        Context::Getinstance().device.waitIdle();			//等待传输完成
+        //Context::Getinstance().device.waitIdle();			//等待传输完成
         Context::Getinstance().commandManager->FreeCmd(cmdBuf);
     }
 

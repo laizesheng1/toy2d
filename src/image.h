@@ -5,11 +5,16 @@
 
 namespace toy2d {
 	class ImageManager;
-	void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits property, vk::Image& image, vk::DeviceMemory& imageMemory);			//创建由设备内存支持的图像对象
-	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
-	vk::Format findSupportFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
-	vk::MemoryAllocateInfo queryImageInfo(vk::Image image, vk::MemoryPropertyFlagBits property);
-	class Image final {
+	class ImageBase {
+	public:
+		virtual ~ImageBase() = default;
+		virtual void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits property, vk::Image& image, vk::DeviceMemory& imageMemory, uint32_t mipLevels=1, vk::SampleCountFlagBits numSamples=vk::SampleCountFlagBits::e1);			//创建由设备内存支持的图像对象
+		virtual vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels=1);
+		virtual vk::Format findSupportFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+		virtual vk::MemoryAllocateInfo queryImageInfo(vk::Image image, vk::MemoryPropertyFlagBits property);
+	};
+
+	class Image :ImageBase {
 	public:
 		friend class ImageManager;
 		~Image();
@@ -18,30 +23,41 @@ namespace toy2d {
 		vk::Sampler TextureSampler;
 		DescriptorSetManager::SetInfo setInfo;
 	private:
+		uint32_t mipLevels;
 		int w, h;
 		std::unique_ptr<Buffer> ImageBuffer;
 		vk::DeviceMemory TextureMemory;
 
 		Image(std::string filename);
-		
+		//image: eUndefined->Dst->shader read only
 		void transitionImageLayoutFromUndefine2Dst();
 		void transitionImageLayoutFromDst2Optimal();
+		//behind eUndefined->Dst, Dst->src ->need src blit(copy) different level mipmap      ->shader read only
+		void generateMipmaps();
 		void transformData2Image(Buffer& buffer);
 		void createTextureSampler();
 		void updateDescriptorSet();
 	};
 
-	class DepthImageInfo final{
+	class ImageInfo :public ImageBase {
 	public:
-		DepthImageInfo();
+		struct ImageResources{
+			vk::ImageView view;				//befor createFramerbuffers
+			vk::Image Image;
+			vk::DeviceMemory Memory;
+			vk::Format format;				//before InitRenderPass
+		};
+		ImageInfo();
 		void destroyDepthImage();
-
-		vk::ImageView DepthImageView;				//befor createFramerbuffers
-		vk::Format Depthformat;				//before InitRenderPass
+		vk::SampleCountFlagBits msaaSamples;
+		ImageResources* depthImage=nullptr;
+		ImageResources* colorImage=nullptr;			
+		
 	private:
-		vk::Image DepthImage;
-		vk::DeviceMemory DepthMemory;
+		vk::SampleCountFlagBits getMaxUsableSampleCount();
+		void DestroyResources(ImageResources* image);
 		void createDepthResources();
+		void createColorResources();
 	};
 
 	class ImageManager final {

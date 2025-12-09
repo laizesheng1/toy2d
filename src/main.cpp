@@ -14,9 +14,6 @@ class Application {
 private:
     GLFWwindow* window;
     toy2d::Renderer* renderer = nullptr;
-    //float x = 400, y = 300;
-    glm::vec3 pos;
-    glm::vec3 size;
     bool framebufferResized = true;
     int width=800, height=600;
 public:
@@ -66,7 +63,6 @@ private:
             }, width, height);
 
         renderer = toy2d::Getrender();
-        pos = ScreenToWorldCenter(-0.95, width, height, renderer->viewMat_, renderer->projectMat_);
     }
 
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -74,40 +70,24 @@ private:
         if (action == GLFW_PRESS) {
             switch (key) {
             case GLFW_KEY_A:
-                app->pos= MoveInScreenSpace(app->pos, -10, 0,
-                    app->width, app->height,
-                    app->renderer->viewMat_, app->renderer->projectMat_);
                 //app->x -= 10;
                 break;
             case GLFW_KEY_D:
-                app->pos = MoveInScreenSpace(app->pos, 10, 0,
-                    app->width, app->height,
-                    app->renderer->viewMat_, app->renderer->projectMat_);
                 //app->x += 10;
                 break;
             case GLFW_KEY_W:
-                app->pos = MoveInScreenSpace(app->pos, 0, -10,
-                    app->width, app->height,
-                    app->renderer->viewMat_, app->renderer->projectMat_);
                 //app->y -= 10;
                 break;
             case GLFW_KEY_S:
-                app->pos = MoveInScreenSpace(app->pos, 0, 10,
-                    app->width, app->height,
-                    app->renderer->viewMat_, app->renderer->projectMat_);
                 //app->y += 10;
                 break;
             case GLFW_KEY_1:
-                app->renderer->SetDrawColor(toy2d::Color{ 1, 0, 0 });
                 break;
             case GLFW_KEY_2:
-                app->renderer->SetDrawColor(toy2d::Color{ 0, 1, 0 });
                 break;
             case GLFW_KEY_3:
-                app->renderer->SetDrawColor(toy2d::Color{ 0, 0, 1 });
                 break;
             case GLFW_KEY_0:
-                app->renderer->SetDrawColor(toy2d::Color{ 1, 1, 1 });
                 break;
             }
         }
@@ -115,8 +95,6 @@ private:
 
     void mainLoop() {
         toy2d::Image* image1 = toy2d::ImageManager::GetInstance().Get(0);
-        toy2d::Image* image2 = toy2d::ImageManager::GetInstance().Get(1);
-        const std::vector<toy2d::Image*> images = { image1,image2 };
         glfwSetKeyCallback(window, key_callback);
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -124,16 +102,15 @@ private:
                 framebufferResized = false;
                 glfwGetFramebufferSize(window, &width, &height);
                 toy2d::recreateSwapChain(width, height);
-                renderer->SetVPMat(width, height);
+                //renderer->SetVPMat(width, height);
                 continue;
             }
             renderer->startRender();
             //renderer->DrawTexture(Rec2D({ 0,0 }, { 100,150 }), image1);       
-            renderer->DrawTexture(RecX(pos, { 1,1 ,1}), image2);
+            renderer->DrawTexture();
             renderer->endRender();
         }
         toy2d::DestroyTexture(image1);
-        toy2d::DestroyTexture(image2);
     }
     void cleanup()
     {

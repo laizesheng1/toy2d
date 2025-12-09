@@ -27,7 +27,7 @@ public:
 	static Context& Getinstance();
 	void CreateSwapchain(int w, int h);
 	void InitcommandManager();
-	void InitDepthImageInfo();
+	void InitImageInfo();
 	void getSurface();
 	~Context();
 
@@ -40,9 +40,8 @@ public:
 	QueueFamilyIndices queueFamilyIndices;
 	std::unique_ptr<Swapchain> swapchain;
 	std::unique_ptr<RenderProcess> renderProcess;
-	std::unique_ptr<Renderer> renderer;
 	std::unique_ptr<CommandManager> commandManager;
-	std::unique_ptr<DepthImageInfo> depthImage;
+	std::unique_ptr<ImageInfo> imageInfo;
 private:
 	Context(const std::vector<const char*>& extension, GetSurfaceCallback func);
 	static Context* _instance;

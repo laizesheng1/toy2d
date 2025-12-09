@@ -7,12 +7,14 @@ namespace toy2d {
 
     DescriptorSetManager::DescriptorSetManager(uint32_t maxFlight) : maxFlight_(maxFlight) {
         //创建MVP的描述符池
-        vk::DescriptorPoolSize size;
-        size.setType(vk::DescriptorType::eUniformBuffer)
-            .setDescriptorCount(2 * maxFlight);             //对于MVP及Color
+        std::array< vk::DescriptorPoolSize, 2> sizes;
+        sizes[0].setType(vk::DescriptorType::eUniformBuffer)
+            .setDescriptorCount(maxFlight);             //对于MVP
+        sizes[1].setType(vk::DescriptorType::eCombinedImageSampler)         //sampler
+            .setDescriptorCount(maxFlight);
         vk::DescriptorPoolCreateInfo createInfo;
         createInfo.setMaxSets(maxFlight)                    //几帧创建几个描述符集，一个描述符集对应一个uniform（shader中）即一个描述符
-            .setPoolSizes(size);
+            .setPoolSizes(sizes);
         auto pool = Context::Getinstance().device.createDescriptorPool(createInfo);
         bufferSetPool_.pool_ = pool;
         bufferSetPool_.remainNum_ = maxFlight;
@@ -65,7 +67,8 @@ namespace toy2d {
     }
 
     DescriptorSetManager::SetInfo DescriptorSetManager::AllocImageSet() {
-        std::vector<vk::DescriptorSetLayout> layouts{ Context::Getinstance().renderProcess->setLayouts[1] };
+        //对于不同set的layouts设定setLayouts[1]
+        std::vector<vk::DescriptorSetLayout> layouts{ Context::Getinstance().renderProcess->setLayouts[0] };
         vk::DescriptorSetAllocateInfo allocInfo;
         auto& poolInfo = getAvaliableImagePoolInfo();
         allocInfo.setDescriptorPool(poolInfo.pool_)

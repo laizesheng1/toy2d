@@ -39,7 +39,7 @@ toy2d::Swapchain::Swapchain(vk::SurfaceKHR* surface, int w, int h):surface_(surf
 toy2d::Swapchain::~Swapchain()
 {
 	auto& device = Context::Getinstance().device;
-	auto& imageInfo = Context::Getinstance().depthImage;			//清除深度信息
+	auto& imageInfo = Context::Getinstance().imageInfo;			//清除深度信息
 	imageInfo->destroyDepthImage();
 	for (auto& framebuffer : framebuffers)
 	{
@@ -50,8 +50,11 @@ toy2d::Swapchain::~Swapchain()
 		device.destroyImageView(view);
 	}
 	device.destroySwapchainKHR(swapchain);
-	Context::Getinstance().instance.destroySurfaceKHR(*surface_);			//***清除surface
-	*surface_ = VK_NULL_HANDLE;
+	if(surface_)
+	{
+		Context::Getinstance().instance.destroySurfaceKHR(*surface_);			//***清除surface
+		*surface_ = VK_NULL_HANDLE;
+	}
 }
 
 void toy2d::Swapchain::queryInfo(int w, int h)
@@ -119,11 +122,12 @@ void toy2d::Swapchain::createImageViews()
 void toy2d::Swapchain::createFramerbuffers(int w, int h)
 {
 	framebuffers.resize(images.size());
-	vk::ImageView depthImageView = Context::Getinstance().depthImage->DepthImageView;
+	vk::ImageView depthImageView = Context::Getinstance().imageInfo->depthImage->view;
+	auto colorImageView = Context::Getinstance().imageInfo->colorImage->view;
 	for (int i = 0; i < framebuffers.size(); i++)
 	{
 		vk::FramebufferCreateInfo createinfo;
-		std::array<vk::ImageView, 2> attachments = { swapChainImageViews[i], depthImageView };
+		std::array<vk::ImageView, 3> attachments = { colorImageView, depthImageView ,swapChainImageViews[i] };
 		createinfo.setAttachments(attachments)
 			.setWidth(w)
 			.setHeight(h)

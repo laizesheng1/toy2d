@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Toy2D LANGUAGES C CXX)
+project(Toy3D LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
@@ -45,20 +45,30 @@ include_directories(${CMAKE_SOURCE_DIR}/packages/glfw/include)
 include_directories(${CMAKE_SOURCE_DIR}/packages)
 include_directories(${Vulkan_INCLUDE_DIRS})
 
+file(GLOB_RECURSE HEADER_FILES 
+    ${CMAKE_SOURCE_DIR}/src/*.h
+    ${CMAKE_SOURCE_DIR}/src/*.hpp
+)
+
 file(GLOB_RECURSE SOURCE_FILES 
     ${CMAKE_SOURCE_DIR}/src/*.cpp
-    ${CMAKE_SOURCE_DIR}/src/*.c 
-    ${CMAKE_SOURCE_DIR}/src/*.h
+    ${CMAKE_SOURCE_DIR}/src/*.c
+    ${CMAKE_SOURCE_DIR}/src/*.cc
 )
-add_executable(${PROJECT_NAME} ${SOURCE_FILES} )
+add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
 
 # ��ȷ�����ڱ��� C++ ����֮ǰ����ɫ���Ѿ��������
 add_dependencies(${PROJECT_NAME} Shaders)
 
 target_link_libraries(${PROJECT_NAME}  PRIVATE ${Vulkan_LIBRARIES} glfw3.lib)
 
-source_group(TREE "${CMAKE_SOURCE_DIR}" FILES ${SOURCE_FILES})
+source_group(TREE "${CMAKE_SOURCE_DIR}/src" 
+    PREFIX "Header Files" 
+    FILES ${HEADER_FILES}
+)
 
-
-
+source_group(TREE "${CMAKE_SOURCE_DIR}/src" 
+    PREFIX "Source Files" 
+    FILES ${SOURCE_FILES}
+)
    

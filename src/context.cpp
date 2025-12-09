@@ -29,9 +29,9 @@ void Context::InitcommandManager()
 	commandManager = std::make_unique<CommandManager>();
 }
 
-void Context::InitDepthImageInfo()
+void Context::InitImageInfo()
 {
-	depthImage.reset(new DepthImageInfo());
+	imageInfo.reset(new ImageInfo());
 }
 
 Context::Context(const std::vector<const char*>& extension, GetSurfaceCallback func) {
@@ -164,11 +164,14 @@ void Context::getSurface()
 Context::~Context() {
 	commandManager.reset();
 	renderProcess.reset();
-	swapchain.reset();				//潜在的问题：调用instance_.reset()时，会调用~Context()，此时会调用~Swapchain():使用到了instance_这个指针，但此时Context内容还是完整的？
+	swapchain.reset();				//深度信息清除
 	if(surface!= VK_NULL_HANDLE)
+	{
 		instance.destroySurfaceKHR(surface);				//在swainchain中已经销毁
+		surface = VK_NULL_HANDLE;
+	}
 	device.destroy();		//先销毁逻辑设备（与instance有关
-	instance.destroy();				//为什么这里销毁 会报错
+	instance.destroy();				
 }
 		
 }
